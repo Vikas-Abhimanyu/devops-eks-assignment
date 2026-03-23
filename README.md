@@ -1,205 +1,198 @@
-# DevOps Assignment – AWS EKS End-to-End Deployment
+# DevOps EKS Assignment – End-to-End AWS Deployment
 
-This repository contains the **complete infrastructure and application stack** required to deploy a containerized application on **Amazon EKS** using modern DevOps practices.
+This repository contains the **complete infrastructure and application stack** to deploy a **three-tier containerized application** on **Amazon EKS**, demonstrating modern DevOps practices.
 
-The project demonstrates:
+The project implements:
 
-* Infrastructure provisioning with **Terraform**
-* Containerization with **Docker**
-* CI/CD automation with **Jenkins**
-* Configuration management using **Ansible**
-* Application deployment to **Kubernetes**
-* Secure secrets handling using **AWS Secrets Manager**
-* Monitoring using **CloudWatch**
+* Infrastructure provisioning using **Terraform** with modular design
+* Containerization using **Docker** (multi-stage, non-root images)
+* CI/CD automation via **Jenkins**
+* Configuration management with **Ansible** (including Jenkins setup and secrets handling)
+* Application deployment on **Kubernetes** using manifests
+* Secure secrets injection via **AWS Secrets Manager**
+* Monitoring, logging, and alerts using **AWS CloudWatch**  
 
-The goal is to implement a **production-style DevOps architecture** where infrastructure, application build, and deployment are automated.
+The goal is a **production-style DevOps workflow** automating infrastructure, builds, and deployments.
 
 ---
 
-# Architecture Overview
+## Architecture Overview
 
-The system provisions and deploys the following AWS resources:
+The infrastructure provisions the following AWS resources:
 
-* **VPC** with public and private subnets
-* **Amazon EKS Cluster**
-* **Amazon RDS (MySQL/Postgres)** for application database
-* **AWS Secrets Manager** for application credentials
-* **Amazon ECR** for Docker image storage
-* **Bastion Host** for cluster access
+* **VPC** with public and private subnets, Internet Gateway, and NAT
+* **Amazon EKS Cluster** with managed node groups
+* **Amazon RDS (Postgres)** for backend database
+* **AWS Secrets Manager** for storing DB credentials and API keys
+* **Amazon ECR** for backend and frontend Docker images
+* **Bastion Host** for secure SSH access
 * **Jenkins Server** for CI/CD pipeline execution
-* **Ansible Server** for automation tasks
-* **AWS Load Balancer Controller** for Kubernetes ingress
-* **CloudWatch** for logs, metrics, and alerts
+* **Ansible Server** for automation tasks and bootstrapping
+* **AWS Load Balancer Controller** for Kubernetes Ingress
+* **CloudWatch** for metrics, logs, and alerts (with SNS notifications)
 
-Deployment flow:
+---
 
-```
+## Deployment Flow
+
+
 Developer → GitHub
-       ↓
+↓
 Jenkins Pipeline
-       ↓
-Docker Build
-       ↓
-Push Image → AWS ECR
-       ↓
+↓
+Docker Build (Backend + Frontend)
+↓
+Push Images → AWS ECR
+↓
 Kubernetes Deployment → Amazon EKS
-       ↓
+↓
+Secrets injected via AWS Secrets Manager CSI driver
+↓
 Application exposed via AWS Load Balancer
-```
+↓
+Monitoring & Alerts via CloudWatch + SNS
+
 
 ---
 
-# Repository Structure
+## Repository Structure
 
-```
-Devops-Assignment
+
+devops-eks-assignment
 │
-├ backend/                # Backend application source code
-├ frontend/               # Frontend application source code
-├ k8s/                    # Kubernetes manifests
-│
-├ terraform/              # Infrastructure as Code
-│   ├ 01-backend          # Terraform state backend resources
-│   ├ 02-network          # VPC, subnets, routing
-│   ├ 03-eks              # EKS cluster and node groups
-│   ├ 04-security         # IAM roles and service accounts
-│   ├ 05-storage          # RDS database infrastructure
-│   ├ 06-secrets          # AWS Secrets Manager secrets
-│   ├ 07-observability    # CloudWatch logs and alarms
-│   ├ 08-compute          # Bastion, Jenkins, Ansible servers
-│   ├ 09-kubernetes       # Kubernetes integrations
-│   └ 10-ecr              # ECR repositories
-│
-├ docker-compose.yml      # Local development environment
-├ Jenkinsfile             # CI/CD pipeline definition
-├ README.md               # Project documentation
-```
+OAOAOA├ backend/ # Flask backend API
+│ ├ app.py
+│ ├ Dockerfile
+│ └ requirements.txt
+├ frontend/ # Static frontend (HTML/JS)
+│ ├ Dockerfile
+│ └ index.html
+├ k8s/ # Kubernetes manifests
+│ ├ backend-deployment.yaml
+│ ├ backend-service.yaml
+│ ├ frontend-deployment.yaml
+OAOAOA│ ├ frontend-service.yaml
+│ ├ ingress.yaml
+OAOAOA│ └ secret-provider.yaml
+├ terraform/ # Infrastructure as Code
+OAOAOA│ ├ modules/ # VPC, EKS, Compute, IAM, Secrets, RDS, ECR, Monitoring, Kubernetes, State
+│ ├ provider.tf
+│ ├ main.tf
+│ ├ variables.tf
+│ └ outputs.tf
+├ docker-compose.yml # Local testing environment
+├ Jenkinsfile # CI/CD pipeline
+├ ansible/ # Playbooks and vault for Jenkins & AWS CLI setup
+└ README.md # Project documentation
+
 
 ---
 
-# Infrastructure Deployment
+## Infrastructure Deployment
 
-Terraform is organized in **layered states**.
-Each directory represents an independent infrastructure component.
+Terraform provisions the **entire AWS stack**, including:
 
-Deploy in the following order:
+* VPC, Subnets, NAT, Internet Gateway, and Routing
+* EKS Cluster and Node Groups
+OAOAOA* IAM Roles and Policies
+* Bastion, Jenkins, and Ansible EC2 Hosts
+* RDS Postgres Database
+* AWS Secrets Manager for DB/API credentials
+OAOAOA* ECR Repositories
+* CloudWatch Logs, Metrics, and Alerts
 
-```
-01-backend
-02-network
-03-eks
-04-security
-05-storage
-06-secrets
-07-observability
-08-compute
-09-kubernetes
-10-ecr
-```
+OAOAOA**Deployment order** (module-wise):
 
-Example deployment:
+1. `terraform/modules/state` – S3 backend & DynamoDB locking  
+2. `terraform/modules/vpc` – VPC and subnets  
+3. `terraform/modules/eks` – EKS cluster + node groups  
+4. `terraform/modules/iam` – IAM roles for EKS & secrets access  
+5. `terraform/modules/rds` – Postgres database  
+6. `terraform/modules/secrets` – AWS Secrets Manager  
+7. `terraform/modules/monitoring` – CloudWatch logs & alarms  
+8. `terraform/modules/compute` – Bastion, Jenkins, and Ansible EC2 hosts  
+9. `terraform/modules/kubernetes` – Kubernetes Helm charts for Secrets Store CSI & ALB controller  
+10. `terraform/modules/ecr` – Backend and Frontend repositories  
 
-```
-cd terraform/02-network
+Example:
+
+```bash
+cd terraform
 terraform init
-terraform plan
-terraform apply
-```
+terraform apply -auto-approve
+Ansible Setup
 
-Repeat for each layer.
+Ansible configures Jenkins and optionally bootstraps the environment:
 
----
+AWS CLI setup using Ansible Vault
+kubectl configuration for EKS access
+Pipeline credentials from Vault
 
-# Application Deployment Workflow
+Run playbook:
 
-1. Developer pushes code to repository
-2. Jenkins pipeline triggers automatically
-3. Pipeline performs:
+ansible-playbook -i inventory playbook.yml --ask-vault-pass
+Application Deployment Workflow
+Developer pushes code to GitHub
+Jenkins pipeline executes:
+Terraform init & apply (if infra not provisioned)
+Docker build for backend & frontend (non-root images)
+Push images to AWS ECR
+Apply Kubernetes manifests on EKS
+Secrets injected from AWS Secrets Manager
+Pods rollout automatically
+Application is accessible via AWS Load Balancer
+Logs and metrics are collected in CloudWatch with alarms sent to SNS
+Kubernetes Components
 
-   * Docker image build
-   * Push image to AWS ECR
-   * Deploy updated application to Kubernetes
-4. Kubernetes pulls the new image and updates the running pods
-5. Application becomes accessible via AWS Load Balancer
+Kubernetes manifests in k8s/:
 
----
+Deployment – Backend API and Frontend pods
+Service – Internal networking
+Ingress – External access via ALB
+SecretProviderClass – Integrates AWS Secrets Manager via CSI driver
+Jenkins CI/CD Pipeline
 
-# Kubernetes Components
+Pipeline stored in Jenkinsfile performs:
 
-The **k8s/** directory contains deployment manifests:
+Terraform init & apply
+Docker image build (backend + frontend)
+Push to AWS ECR
+Apply Kubernetes manifests
+Trigger rollout on pods
 
-* **Deployment** – application pods
-* **Service** – internal cluster access
-* **Ingress** – external load balancer
-* **SecretProviderClass** – integration with AWS Secrets Manager
+All secrets are stored securely via:
 
-These resources run inside the **EKS cluster** created by Terraform.
+AWS Secrets Manager
+Jenkins Credentials / Ansible Vault
 
----
+No secrets are in Git.
 
-# CI/CD Pipeline
+Local Development (Optional)
 
-The **Jenkins pipeline** performs:
+Run the application locally using Docker Compose:
 
-1. Source code checkout
-2. Docker image build
-3. Push image to **AWS ECR**
-4. Update Kubernetes deployment
-5. Trigger rollout on EKS
-
-Pipeline definition is stored in:
-
-```
-Jenkinsfile
-```
-
----
-
-# Local Development (Optional)
-
-Run the application locally using Docker:
-
-```
+./make-env.sh   # Generates .env with Terraform & Secrets Manager values
 docker-compose up --build
-```
-
----
-
-# Prerequisites
-
-Before running this project ensure the following tools are installed:
-
-* Terraform
-* AWS CLI
-* Docker
-* kubectl
-* Helm
-* Git
+Prerequisites
+Terraform >= 1.5
+AWS CLI
+Docker
+kubectl
+Helm
+Git
+Ansible
 
 AWS credentials must be configured:
 
-```
 aws configure
-```
+Key Features
+Modular Terraform architecture with state management (S3 + DynamoDB locking + versioning)
+Multi-stage non-root Docker images
+Kubernetes deployment on Amazon EKS
+Secure secrets injection via AWS Secrets Manager
+CI/CD automation using Jenkins
+Bastion host for secure access
+CloudWatch monitoring, logging, and alerts
+Purpose
 
----
-
-# Key Features Implemented
-
-* Infrastructure as Code with Terraform
-* Multi-layer Terraform state architecture
-* Kubernetes deployment on AWS EKS
-* Secure secret injection via AWS Secrets Manager
-* CI/CD automation using Jenkins
-* Container image management with AWS ECR
-* Monitoring and alerting via CloudWatch
-* Bastion host for secure cluster access
-
----
-
-# Purpose of the Project
-
-This project demonstrates how to design and implement a **production-style DevOps platform on AWS**, combining infrastructure automation, container orchestration, and CI/CD pipelines.
-
-It serves as a practical example of building a **complete cloud-native deployment workflow** from infrastructure provisioning to application delivery.
-
+This project demonstrates a production-style DevOps platform on AWS, from infrastructure provisioning to deployment, with a focus on automation, security, and observability.

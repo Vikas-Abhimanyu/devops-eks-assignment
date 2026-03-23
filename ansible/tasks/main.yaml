@@ -1,0 +1,181 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+
+- name: Upgrade Ubuntu packages
+  apt:
+    upgrade: dist
+    update_cache: yes
+
+- name: Install base packages
+  apt:
+    name:
+      - python3
+      - python3-pip
+      - wget
+      - unzip
+      - git
+      - docker.io
+      - "{{ jenkins_java_package }}"
+      - fontconfig
+    state: present
+    update_cache: yes
+
+- name: Enable and start Docker
+  systemd:
+    name: docker
+    enabled: yes
+    state: started
+
+# -----------------------------
+# Jenkins repository & install
+# -----------------------------
+- name: Ensure Jenkins keyrings directory exists
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Download Jenkins GPG key
+  get_url:
+    url: https://pkg.jenkins.io/debian-stable/jenkins.io-2026.key
+    dest: /etc/apt/keyrings/jenkins-keyring.asc
+    mode: '0644'
+
+- name: Add Jenkins repository from template
+  template:
+    src: jenkins.list.j2
+    dest: /etc/apt/sources.list.d/jenkins.list
+
+- name: Update apt cache after adding Jenkins repo
+  apt:
+    update_cache: yes
+
+- name: Install Jenkins
+  apt:
+    name: jenkins
+    state: present
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
+
+- name: Add Jenkins user to docker group
+  user:
+    name: jenkins
+    groups: docker
+    append: yes
+
+- name: Enable and start Jenkins
+  systemd:
+    name: jenkins
+    enabled: yes
+    state: started
+
+# -----------------------------
+# Terraform
+# -----------------------------
+- name: Install Terraform
+  unarchive:
+    src: "https://releases.hashicorp.com/terraform/{{ terraform_version }}/terraform_{{ terraform_version }}_linux_amd64.zip"
+    dest: /usr/local/bin/
+    remote_src: yes
+  args:
+    creates: /usr/local/bin/terraform
+
+# -----------------------------
+# AWS CLI
+# -----------------------------
+- name: Download AWS CLI
+  get_url:
+    url: "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-{{ awscli_version }}.zip"
+    dest: /tmp/awscliv2.zip
+
+- name: Unzip AWS CLI
+  unarchive:
+    src: /tmp/awscliv2.zip
+    dest: /tmp
+    remote_src: yes
+
+- name: Run AWS CLI installer
+  command: /tmp/aws/install
+  args:
+    creates: /usr/local/aws-cli
+
+- name: Symlink AWS CLI binary
+  file:
+    src: /usr/local/aws-cli/v2/current/bin/aws
+    dest: /usr/local/bin/aws
+    state: link
+
+# -----------------------------
+# Helm
+# -----------------------------
+- name: Download Helm
+  get_url:
+    url: "https://get.helm.sh/helm-{{ helm_version }}-linux-amd64.tar.gz"
+    dest: /tmp/helm.tar.gz
+
+- name: Extract Helm
+  unarchive:
+    src: /tmp/helm.tar.gz
+    dest: /tmp
+    remote_src: yes
+
+- name: Move Helm binary
+  command: mv /tmp/linux-amd64/helm /usr/local/bin/helm
+  args:
+    creates: /usr/local/bin/helm
+
+# -----------------------------
+# kubectl
+# -----------------------------
+- name: Download kubectl
+  get_url:
+    url: "https://dl.k8s.io/release/{{ kubectl_version }}/bin/linux/amd64/kubectl"
+    dest: /usr/local/bin/kubectl
+    mode: '0755'
+
+# -----------------------------
+# Jenkins plugins
+# -----------------------------
+- name: Install required Jenkins plugins
+  jenkins_plugin:
+    name:
+      - docker-workflow
+      - pipeline-aws
+      - kubernetes
+      - workflow-aggregator
+      - git
+    state: present
+  become_user: jenkins
+
+# -----------------------------
+# AWS credentials in Jenkins
+# -----------------------------
+- name: Create AWS credentials in Jenkins
+  jenkins_credentials:
+    name: aws-creds
+    description: AWS credentials for EKS/ECR
+    secret: "{{ aws_secret_key }}"
+    username: "{{ aws_access_key }}"
+    credential_type: username_password
+  become_user: jenkins
+
+# -----------------------------
+# Copy kubeconfig to Jenkins
+# -----------------------------
+- name: Copy kubeconfig
+  copy:
+    src: /home/ubuntu/.kube/config
+    dest: /var/lib/jenkins/.kube/config
+    owner: jenkins
+    group: jenkins
+    mode: '0600'
+
+- name: Reload Jenkins configuration
+  uri:
+    url: http://localhost:8080/reload
+    method: POST
+    status_code: 200

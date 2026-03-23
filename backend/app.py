@@ -19,6 +19,10 @@ def get_db_connection():
 def home():
     return {"message": "Backend API running"}
 
+@app.route("/api/users")
+def api_users():
+    return users()
+
 @app.route("/users")
 def users():
     conn = get_db_connection()

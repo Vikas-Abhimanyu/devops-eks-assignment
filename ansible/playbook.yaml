@@ -1,0 +1,7 @@
+- hosts: jenkins
+  become: yes
+  vars_files:
+    - vars/main.yml
+    - group_vars/all/vault.yml
+  roles:
+    - jenkins-server

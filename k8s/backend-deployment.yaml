@@ -4,7 +4,7 @@ metadata:
   name: backend
   namespace: default
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: backend
@@ -16,29 +16,40 @@ spec:
       serviceAccountName: secrets-reader
       containers:
       - name: backend
-        image: 149903054702.dkr.ecr.ap-south-1.amazonaws.com/devops-app:latest
+        image: backend-placeholder:latest
         ports:
         - containerPort: 5000
+        env:
+        - name: DB_HOST
+          value: "localhost"  
+        - name: DB_NAME
+          value: "appdb"
+        envFrom:
+        - secretRef:
+            name: aws-secrets
         volumeMounts:
         - name: secrets-store
           mountPath: "/mnt/secrets-store"
           readOnly: true
-        env:
-        - name: DB_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: aws-secrets
-              key: db_username
-        - name: DB_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: aws-secrets
-              key: db_password
-        - name: API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: aws-secrets
-              key: api_key
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10
       volumes:
       - name: secrets-store
         csi:
