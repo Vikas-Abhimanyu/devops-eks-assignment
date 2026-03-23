@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>DevOps 3 Tier App</title>
+</head>
+<body>
+<h1>Three Tier DevOps Application</h1>
+<button onclick="getUsers()">Create User</button>
+<pre id="output"></pre>
+<script>
+function getUsers() {
+  fetch("/api/users")
+    .then(res => res.json())
+    .then(data => {
+      document.getElementById("output").innerHTML =
+        JSON.stringify(data, null, 2);
+    });
+}
+</script>
+</body>
+</html>
+

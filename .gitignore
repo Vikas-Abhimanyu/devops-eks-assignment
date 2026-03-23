@@ -1,0 +1,69 @@
+# ==========================
+# Terraform
+# ==========================
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+override.tf.json
+*.plan
+.terraform/
+
+# Ignore local backend overrides
+backend.tf
+
+# Ignore variable files containing secrets
+*.tfvars
+terraform.tfvars
+
+# ==========================
+# Secrets / Credentials
+# ==========================
+secrets.tf
+*.pem
+*.key
+*.crt
+*.env
+.env.*
+
+# ==========================
+# Python
+# ==========================
+__pycache__/
+*.pyc
+
+# ==========================
+# Docker
+# ==========================
+*.dockerfile~
+.dockerignore
+
+# ==========================
+# Kubernetes temp files
+# ==========================
+*.yaml~
+*.yml~
+
+# ==========================
+# Jenkins
+# ==========================
+jenkins_home/
+
+# ==========================
+# IDE / OS
+# ==========================
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ==========================
+# SSH Keys (local only)
+# ==========================
+bastion_key
+bastion_key.pub
+
+# ==========================
+# Optional: Logs / Local files
+# ==========================
+*.log
