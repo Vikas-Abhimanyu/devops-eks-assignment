@@ -10,3 +10,13 @@ output "jenkins_ip" {
 output "ansible_ip" {
   value = aws_instance.ansible_host.public_ip
 }
+
+output "jenkins_role_name" {
+  value       = aws_iam_role.jenkins_role.name
+  description = "Name of the Jenkins EC2 IAM role"
+}
+
+output "jenkins_role_arn" {
+  value       = aws_iam_role.jenkins_role.arn
+  description = "ARN of the Jenkins EC2 IAM role"
+}

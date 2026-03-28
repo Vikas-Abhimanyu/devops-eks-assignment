@@ -16,6 +16,9 @@ resource "helm_release" "secrets_store" {
   values = [
     yamlencode({
       installCRDs = true
+      syncSecret = {
+        enabled = true
+      }
       linux = {
         resources = {
           limits   = { cpu = "100m", memory = "128Mi" }
@@ -25,37 +28,56 @@ resource "helm_release" "secrets_store" {
     })
   ]
 
-  atomic  = true
-  cleanup_on_fail  = true
-  wait    = true
-  timeout = 600
+  atomic          = true
+  cleanup_on_fail = true
+  wait            = true
+  timeout         = 600
 }
 
 # AWS Secrets Provider for CSI (with its own ServiceAccount)
-# resource "helm_release" "secrets_provider_aws" {
-#   name       = "secrets-provider-aws"
-#   repository = "https://aws.github.io/secrets-store-csi-driver-provider-aws"
-#   chart      = "secrets-store-csi-driver-provider-aws"
-#   namespace  = kubernetes_namespace.kube_system.metadata[0].name
-#
-#   values = [
-#     yamlencode({
-#       resources = {
-#         limits   = { cpu = "100m", memory = "128Mi" }
-#         requests = { cpu = "50m", memory = "64Mi" }
-#       }
-#     })
-#   ]
-#
-#   atomic  = true
-#   wait    = true
-#   timeout = 300
-#
-#   depends_on = [
-#     helm_release.secrets_store,
-#     kubernetes_namespace.kube_system
-#   ]
-# }
+resource "kubernetes_manifest" "secret_provider_class" {
+  manifest = {
+    apiVersion = "secrets-store.csi.x-k8s.io/v1"
+    kind       = "SecretProviderClass"
+    metadata = {
+      name      = "aws-secrets"
+      namespace = "default"
+    }
+    spec = {
+      provider   = "aws"
+      parameters = {
+        region  = var.region
+        roleArn = var.irsa_role_arn
+        objects = <<EOT
+        - objectName: ${var.db_username_secret_arn}
+          objectType: secretsmanager
+          objectAlias: db_username
+        - objectName: ${var.db_password_secret_arn}
+          objectType: secretsmanager
+          objectAlias: db_password
+        - objectName: ${var.api_key_secret_arn}
+          objectType: secretsmanager
+          objectAlias: api_key
+        EOT
+      }
+      secretObjects = [{
+        secretName = "aws-secrets"
+        type       = "Opaque"
+        data = [
+          { objectName = var.db_username_secret_arn, key = "DB_USERNAME" },
+          { objectName = var.db_password_secret_arn, key = "DB_PASSWORD" },
+          { objectName = var.api_key_secret_arn, key = "API_KEY" }
+        ]
+      }]
+    }
+  }
+
+  field_manager {
+    name            = "terraform"
+    force_conflicts = true
+  }
+}
+
 
 # kubectl apply -f https://raw.githubusercontent.com/aws/secrets-store-csi-driver-provider-aws/main/deployment/aws-provider-installer.yaml
 
@@ -143,3 +165,27 @@ resource "helm_release" "metrics_server" {
     helm_release.alb_controller,
   ]
 }
+
+resource "kubernetes_config_map" "aws_auth" {
+  metadata {
+    name      = "aws-auth"
+    namespace = "kube-system"
+  }
+
+  data = {
+    mapRoles = yamlencode([
+      {
+        rolearn  = var.jenkins_role_arn
+        username = "jenkins"
+        groups   = ["system:masters"]
+      }
+    ])
+  }
+
+  lifecycle {
+    ignore_changes = [
+      data["mapRoles"]
+    ]
+  }
+}
+

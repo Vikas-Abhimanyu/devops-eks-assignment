@@ -54,6 +54,7 @@ module "iam" {
   db_username_secret_arn = module.secrets.db_username_secret_arn
   db_password_secret_arn = module.secrets.db_password_secret_arn
   api_key_secret_arn     = module.secrets.api_key_secret_arn
+  jenkins_role_name      = module.compute.jenkins_role_name
 }
 
 module "kubernetes" {
@@ -64,12 +65,16 @@ module "kubernetes" {
   cluster_ca       = module.eks.cluster_ca
   cluster_token    = data.aws_eks_cluster_auth.cluster.token
 
-  region        = var.region
-  vpc_id        = module.vpc.vpc_id
-  irsa_role_arn = module.iam.secrets_role_arn
-  alb_role_arn  = module.iam.alb_controller_role_arn
+  region                 = var.region
+  vpc_id                 = module.vpc.vpc_id
+  irsa_role_arn          = module.iam.secrets_role_arn   # ✅ aligned with variables.tf
+  db_username_secret_arn = module.secrets.db_username_secret_arn
+  db_password_secret_arn = module.secrets.db_password_secret_arn
+  api_key_secret_arn     = module.secrets.api_key_secret_arn
+  alb_role_arn           = module.iam.alb_controller_role_arn
 
-  depends_on = [module.eks]
+  jenkins_role_arn = module.compute.jenkins_role_arn
+  eks_cluster_name = module.eks.cluster_name
 
   providers = {
     kubernetes = kubernetes

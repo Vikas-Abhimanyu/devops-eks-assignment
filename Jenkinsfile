@@ -3,16 +3,13 @@ pipeline {
 
   environment {
     AWS_REGION    = "ap-south-1"
-
     ECR_REGISTRY  = "149903054702.dkr.ecr.${AWS_REGION}.amazonaws.com"
     ECR_BACKEND   = "${ECR_REGISTRY}/devops-app-backend"
     ECR_FRONTEND  = "${ECR_REGISTRY}/devops-app-frontend"
-
-    IMAGE_TAG     = "${BUILD_NUMBER}"   // Jenkins build number as image tag
+    IMAGE_TAG     = "${BUILD_NUMBER}"
   }
 
   stages {
-
     stage('Checkout Code') {
       steps {
         git branch: 'main',
@@ -23,6 +20,10 @@ pipeline {
     stage('Fetch Terraform Outputs') {
       steps {
         script {
+          sh '''
+            cd terraform
+            terraform init -backend-config="region=ap-south-1"
+          '''
           env.RDS_ENDPOINT = sh(
             script: 'cd terraform && terraform output -raw rds_endpoint',
             returnStdout: true
@@ -45,10 +46,7 @@ pipeline {
 
     stage('Login to ECR') {
       steps {
-        withCredentials([[
-          $class: 'AmazonWebServicesCredentialsBinding',
-          credentialsId: 'aws-creds'
-        ]]) {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
           sh '''
             aws ecr get-login-password --region ${AWS_REGION} \
             | docker login --username AWS --password-stdin ${ECR_REGISTRY}
@@ -57,39 +55,26 @@ pipeline {
       }
     }
 
-    stage('Push Backend Image') {
+    stage('Push Images') {
       steps {
         sh "docker push ${ECR_BACKEND}:${IMAGE_TAG}"
-      }
-    }
-
-    stage('Push Frontend Image') {
-      steps {
         sh "docker push ${ECR_FRONTEND}:${IMAGE_TAG}"
       }
     }
 
     stage('Deploy to Kubernetes') {
       steps {
-        withCredentials([[
-          $class: 'AmazonWebServicesCredentialsBinding',
-          credentialsId: 'aws-creds'
-        ]]) {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
           sh """
-            # Configure kubectl once
             aws eks update-kubeconfig --region ${AWS_REGION} --name devops-eks
 
-            # Apply all manifests
-            kubectl apply -f k8s/ -n default
+            kubectl apply -f k8s/ 
 
-            # Update images dynamically
             kubectl set image deployment/backend backend=${ECR_BACKEND}:${IMAGE_TAG} -n default
             kubectl set image deployment/frontend frontend=${ECR_FRONTEND}:${IMAGE_TAG} -n default
 
-            # Inject RDS endpoint correctly
             kubectl set env deployment/backend DB_HOST=${RDS_ENDPOINT} -n default
 
-            # Wait for rollout to complete
             kubectl rollout status deployment/backend -n default
             kubectl rollout status deployment/frontend -n default
           """
@@ -99,11 +84,7 @@ pipeline {
   }
 
   post {
-    success {
-      echo "Deployment successful"
-    }
-    failure {
-      echo "Pipeline failed"
-    }
+    success { echo "Deployment successful" }
+    failure { echo "Pipeline failed" }
   }
 }

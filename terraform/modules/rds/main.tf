@@ -40,16 +40,6 @@ locals {
   db_password = lookup(local.db_secret_json, var.db_password_key, "")
 }
 
-# Fail if DB password is missing
-resource "null_resource" "validate_secret" {
-  provisioner "local-exec" {
-    command = "test -n '${local.db_password}' || (echo 'DB password key not found in secret JSON' && exit 1)"
-  }
-  triggers = {
-    db_password = local.db_password
-  }
-}
-
 # RDS instance
 resource "aws_db_instance" "postgres" {
   identifier        = "devops-postgres"
@@ -70,7 +60,7 @@ resource "aws_db_instance" "postgres" {
   publicly_accessible    = false
 
   depends_on = [
-    null_resource.validate_secret,
+    data.aws_secretsmanager_secret_version.db_secret,
     aws_security_group_rule.eks_to_rds
   ]
 }

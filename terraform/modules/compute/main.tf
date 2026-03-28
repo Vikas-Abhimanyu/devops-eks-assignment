@@ -161,3 +161,40 @@ resource "aws_iam_role_policy" "jenkins_tf_state" {
     ]
   })
 }
+
+resource "aws_iam_role_policy" "jenkins_extra_permissions" {
+  name = "jenkins-extra-permissions"
+  role = aws_iam_role.jenkins_role.name
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "eks:ListClusters",
+          "eks:DescribeCluster",
+          "eks:ListNodegroups",
+          "eks:DescribeNodegroup"
+        ],
+        Resource = "*"
+      },
+      {
+        Effect = "Allow",
+        Action = [
+          "cloudwatch:GetMetricData",
+          "cloudwatch:ListMetrics",
+          "cloudwatch:GetMetricStatistics"
+        ],
+        Resource = "*"
+      },
+      {
+        Effect = "Allow",
+        Action = [
+          "sns:Publish"
+        ],
+        Resource = "*"
+      }
+    ]
+  })
+}
