@@ -1,4 +1,7 @@
 ---
+# -----------------------------
+# System setup
+# -----------------------------
 - name: Update apt cache
   apt:
     update_cache: yes
@@ -17,7 +20,7 @@
       - unzip
       - git
       - docker.io
-      - "{{ jenkins_java_package }}"
+      - openjdk-17-jdk   
       - fontconfig
     state: present
     update_cache: yes
@@ -33,20 +36,21 @@
 # -----------------------------
 - name: Ensure Jenkins keyrings directory exists
   file:
-    path: /etc/apt/keyrings
+    path: /usr/share/keyrings
     state: directory
     mode: '0755'
 
-- name: Download Jenkins GPG key
+- name: Download Jenkins GPG key (latest 2026 key)
   get_url:
     url: https://pkg.jenkins.io/debian-stable/jenkins.io-2026.key
-    dest: /etc/apt/keyrings/jenkins-keyring.asc
+    dest: /usr/share/keyrings/jenkins-keyring.asc
     mode: '0644'
 
-- name: Add Jenkins repository from template
-  template:
-    src: jenkins.list.j2
+- name: Add Jenkins repository
+  copy:
     dest: /etc/apt/sources.list.d/jenkins.list
+    content: |
+      deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/
 
 - name: Update apt cache after adding Jenkins repo
   apt:
@@ -136,46 +140,3 @@
     url: "https://dl.k8s.io/release/{{ kubectl_version }}/bin/linux/amd64/kubectl"
     dest: /usr/local/bin/kubectl
     mode: '0755'
-
-# -----------------------------
-# Jenkins plugins
-# -----------------------------
-- name: Install required Jenkins plugins
-  jenkins_plugin:
-    name:
-      - docker-workflow
-      - pipeline-aws
-      - kubernetes
-      - workflow-aggregator
-      - git
-    state: present
-  become_user: jenkins
-
-# -----------------------------
-# AWS credentials in Jenkins
-# -----------------------------
-- name: Create AWS credentials in Jenkins
-  jenkins_credentials:
-    name: aws-creds
-    description: AWS credentials for EKS/ECR
-    secret: "{{ aws_secret_key }}"
-    username: "{{ aws_access_key }}"
-    credential_type: username_password
-  become_user: jenkins
-
-# -----------------------------
-# Copy kubeconfig to Jenkins
-# -----------------------------
-- name: Copy kubeconfig
-  copy:
-    src: /home/ubuntu/.kube/config
-    dest: /var/lib/jenkins/.kube/config
-    owner: jenkins
-    group: jenkins
-    mode: '0600'
-
-- name: Reload Jenkins configuration
-  uri:
-    url: http://localhost:8080/reload
-    method: POST
-    status_code: 200

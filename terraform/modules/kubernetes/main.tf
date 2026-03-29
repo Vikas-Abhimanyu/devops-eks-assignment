@@ -28,10 +28,10 @@ resource "helm_release" "secrets_store" {
     })
   ]
 
-  atomic          = true
-  cleanup_on_fail = true
-  wait            = true
-  timeout         = 600
+  atomic          = true # Rollback on failure to prevent partial installs
+  cleanup_on_fail = true # Ensure failed releases are cleaned up for idempotency
+  wait            = true # Wait for all resources to be ready before proceeding
+  timeout         = 600  # Increase timeout for CRD installation and controller startup
 }
 
 # AWS Secrets Provider for CSI (with its own ServiceAccount)
@@ -78,9 +78,6 @@ resource "kubernetes_manifest" "secret_provider_class" {
   }
 }
 
-
-# kubectl apply -f https://raw.githubusercontent.com/aws/secrets-store-csi-driver-provider-aws/main/deployment/aws-provider-installer.yaml
-
 # AWS Load Balancer Controller service account
 resource "kubernetes_service_account" "alb_controller" {
   metadata {
@@ -93,7 +90,7 @@ resource "kubernetes_service_account" "alb_controller" {
   }
 }
 
-# AWS Load Balancer Controller Helm release
+# AWS Load Balancer Controller Helm release 
 resource "helm_release" "alb_controller" {
   name       = "aws-load-balancer-controller"
   repository = "https://aws.github.io/eks-charts"
@@ -146,8 +143,8 @@ resource "helm_release" "metrics_server" {
   values = [
     yamlencode({
       args = [
-        "--kubelet-insecure-tls",
-        "--kubelet-preferred-address-types=InternalIP"
+        "--kubelet-insecure-tls", # Skip TLS verification for kubelet metrics (common in private clusters)
+        "--kubelet-preferred-address-types=InternalIP" # Use InternalIP for better compatibility in private subnets
       ]
       resources = {
         limits   = { cpu = "100m", memory = "128Mi" }
@@ -184,8 +181,7 @@ resource "kubernetes_config_map" "aws_auth" {
 
   lifecycle {
     ignore_changes = [
-      data["mapRoles"]
+      data["mapRoles"] # Ignore changes to mapRoles to prevent Terraform from trying to revert manual updates (like adding Jenkins role)
     ]
   }
 }
-

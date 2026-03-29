@@ -1,12 +1,13 @@
+# CloudWatch Log Group for EKS container logs
 terraform {
   required_providers {
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "~> 2.0"
+      version = "~> 2.20"
     }
     helm = {
       source  = "hashicorp/helm"
-      version = "~> 2.0"
+      version = "~> 2.9"
     }
   }
 }

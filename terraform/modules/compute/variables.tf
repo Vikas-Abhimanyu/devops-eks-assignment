@@ -19,3 +19,13 @@ variable "ami_id" {
   description = "AMI ID to use for Jenkins/Ansible servers"
   default     = "ami-05d2d839d4f73aafb" # Example Ubuntu 24.04
 }
+
+variable "region" {
+  description = "AWS region for dynamic ARN references"
+  type        = string
+}
+
+variable "cluster_name" {
+  description = "EKS cluster name for dynamic ARN references"
+  type        = string
+}

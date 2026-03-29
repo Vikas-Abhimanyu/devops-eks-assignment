@@ -10,8 +10,14 @@ output "cluster_ca" {
   value = aws_eks_cluster.cluster.certificate_authority[0].data
 }
 
-output "oidc_provider" {
-  value = aws_iam_openid_connect_provider.eks.url
+output "eks_oidc_provider_arn" {
+  description = "ARN of the EKS OIDC provider"
+  value       = aws_iam_openid_connect_provider.eks.arn
+}
+
+output "eks_oidc_provider_url" {
+  description = "URL of the EKS OIDC provider"
+  value       = aws_iam_openid_connect_provider.eks.url
 }
 
 output "node_group_name" {

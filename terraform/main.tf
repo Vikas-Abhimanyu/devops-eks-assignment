@@ -2,7 +2,6 @@ module "vpc" {
   source = "./modules/vpc"
 }
 
-
 module "compute" {
   source = "./modules/compute"
 
@@ -12,7 +11,11 @@ module "compute" {
   jenkins_instance_type = "c7i-flex.large"
   ansible_instance_type = "t3.micro"
   ami_id                = "ami-05d2d839d4f73aafb"
+
+  region       = var.region
+  cluster_name = var.cluster_name
 }
+
 
 module "eks" {
   source = "./modules/eks"
@@ -49,13 +52,21 @@ module "rds" {
 }
 
 module "iam" {
-  source                 = "./modules/iam"
-  oidc_provider          = module.eks.oidc_provider
+  source = "./modules/iam"
+
+  #Pass OIDC provider details from EKS outputs
+  eks_oidc_provider_arn  = module.eks.eks_oidc_provider_arn
+  eks_oidc_provider_url  = module.eks.eks_oidc_provider_url
+
+  #Pass secrets ARNs from the Secrets module
   db_username_secret_arn = module.secrets.db_username_secret_arn
   db_password_secret_arn = module.secrets.db_password_secret_arn
   api_key_secret_arn     = module.secrets.api_key_secret_arn
+
+  #Pass Jenkins role name from Compute module
   jenkins_role_name      = module.compute.jenkins_role_name
 }
+
 
 module "kubernetes" {
   source = "./modules/kubernetes"
@@ -67,14 +78,13 @@ module "kubernetes" {
 
   region                 = var.region
   vpc_id                 = module.vpc.vpc_id
-  irsa_role_arn          = module.iam.secrets_role_arn   # ✅ aligned with variables.tf
+  irsa_role_arn          = module.iam.secrets_role_arn  
   db_username_secret_arn = module.secrets.db_username_secret_arn
   db_password_secret_arn = module.secrets.db_password_secret_arn
   api_key_secret_arn     = module.secrets.api_key_secret_arn
   alb_role_arn           = module.iam.alb_controller_role_arn
 
   jenkins_role_arn = module.compute.jenkins_role_arn
-  eks_cluster_name = module.eks.cluster_name
 
   providers = {
     kubernetes = kubernetes

@@ -9,7 +9,7 @@ variable "subnet_ids" {
 variable "oidc_thumbprint" {
   description = "OIDC provider thumbprint"
   type        = string
-  default     = "9e99a48a9960b14926bb7f3b02e22da0afd0e0c9"
+  default     = "9e99a48a9960b14926bb7f3b02e22da0afd0e0c9" # trusted certificate fingerprint AWS uses to validate your EKS OIDC provider
 }
 
 variable "ssh_key_name" {

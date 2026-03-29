@@ -1,6 +1,11 @@
-variable "oidc_provider" {
+variable "eks_oidc_provider_arn" {
   type        = string
-  description = "OIDC provider URL for the EKS cluster"
+  description = "ARN of the EKS OIDC provider"
+}
+
+variable "eks_oidc_provider_url" {
+  type        = string
+  description = "URL of the EKS OIDC provider"
 }
 
 variable "db_username_secret_arn" {
